@@ -1,24 +1,23 @@
-package examplefuncsplayer;
+package beginnerplayer;
 import battlecode.common.*;
 
 public strictfp class RobotPlayer {
     static RobotController rc;
 
     static Direction[] directions = {
-        Direction.NORTH,
-        Direction.NORTHEAST,
-        Direction.EAST,
-        Direction.SOUTHEAST,
-        Direction.SOUTH,
-        Direction.SOUTHWEST,
-        Direction.WEST,
-        Direction.NORTHWEST
+            Direction.NORTH,
+            Direction.NORTHEAST,
+            Direction.EAST,
+            Direction.SOUTHEAST,
+            Direction.SOUTH,
+            Direction.SOUTHWEST,
+            Direction.WEST,
+            Direction.NORTHWEST
     };
     static RobotType[] spawnedByMiner = {RobotType.REFINERY, RobotType.VAPORATOR, RobotType.DESIGN_SCHOOL,
             RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
 
     static int turnCount;
-
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
      * If this method returns, the robot dies!
@@ -33,48 +32,57 @@ public strictfp class RobotPlayer {
         turnCount = 0;
 
         System.out.println("I'm a " + rc.getType() + " and I just got created!");
-        while (true) {
-            turnCount += 1;
-            // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
-            try {
-                // Here, we've separated the controls into a different method for each RobotType.
-                // You can add the missing ones or rewrite this into your own control structure.
-                System.out.println("I'm a " + rc.getType() + "! Location " + rc.getLocation());
-                switch (rc.getType()) {
-                    case HQ:                 runHQ();                break;
-                    case MINER:              runMiner();             break;
-                    case REFINERY:           runRefinery();          break;
-                    case VAPORATOR:          runVaporator();         break;
-                    case DESIGN_SCHOOL:      runDesignSchool();      break;
-                    case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
-                    case LANDSCAPER:         runLandscaper();        break;
-                    case DELIVERY_DRONE:     runDeliveryDrone();     break;
-                    case NET_GUN:            runNetGun();            break;
-                }
-
-                // Clock.yield() makes the robot wait until the next turn, then it will perform this loop again
-                Clock.yield();
-
-            } catch (Exception e) {
-                System.out.println(rc.getType() + " Exception");
-                e.printStackTrace();
+        // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
+        try {
+            // Here, we've separated the controls into a different method for each RobotType.
+            // You can add the missing ones or rewrite this into your own control structure.
+            System.out.println("I'm a " + rc.getType() + "! Location " + rc.getLocation());
+            switch (rc.getType()) {
+                case HQ:                 runHQ();                break;
+                case MINER:              runMiner();             break;
+                case REFINERY:           runRefinery();          break;
+                case VAPORATOR:          runVaporator();         break;
+                case DESIGN_SCHOOL:      runDesignSchool();      break;
+                case FULFILLMENT_CENTER: runFulfillmentCenter(); break;
+                case LANDSCAPER:         runLandscaper();        break;
+                case DELIVERY_DRONE:     runDeliveryDrone();     break;
+                case NET_GUN:            runNetGun();            break;
             }
+
+        } catch (Exception e) {
+            System.out.println(rc.getType() + " Exception");
+            e.printStackTrace();
         }
     }
 
     static void runHQ() throws GameActionException {
-        for (Direction dir : directions) {
-            if (rc.getRoundNum() < 250) tryBuild(RobotType.MINER, dir);
+        int minersActive = 0;
+        while (true) {
+            turnCount ++;
+            if (minersActive < 5) {
+                if (tryBuild(RobotType.MINER, randomDirection()))
+                    minersActive++;
+            }
+            Clock.yield();
         }
     }
 
     static void runMiner() throws GameActionException {
+        int hqx;
+        int hqy;
+        RobotInfo[] nearby = rc.senseNearbyRobots(2, rc.getTeam());
+        for (RobotInfo i : nearby) {
+            if (i.type == RobotType.HQ) {
+                hqx = i.location.x;
+                hqy = i.location.y;
+            }
+        }
+        tryMinerBlockchain();
         for (Direction dir : directions) {
             if (rc.getRoundNum() < 346) {
                 tryBuild(RobotType.FULFILLMENT_CENTER, dir);
             }
         }
-        tryBlockchain();
         if (tryMove(randomDirection()))
             System.out.println("I moved!");
         // tryBuild(randomSpawnedByMiner(), randomDirection());
@@ -223,7 +231,7 @@ public strictfp class RobotPlayer {
     }
 
 
-    static void tryBlockchain() throws GameActionException {
+    static void tryMinerBlockchain() throws GameActionException {
         if (turnCount < 3) {
             int[] message = new int[7];
             for (int i = 0; i < 7; i++) {
