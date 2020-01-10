@@ -59,9 +59,12 @@ public strictfp class RobotPlayer {
     static void runHQ() throws GameActionException {
         MapLocation hqLoc = rc.getLocation();
         int[] message = new int[] {3355678, 5, 100 * hqLoc.x + hqLoc.y, 0, 0, 0, 0};
-        if (rc.canSubmitTransaction(message, 51)) {
-            rc.submitTransaction(message, 51);
-            System.out.println("Location submitted");
+        boolean messageIsPending = true;
+        while (messageIsPending) {
+            if (trySubmitTransaction(message, 51)) {
+                System.out.println("Location submitted");
+                messageIsPending = false;
+            }
         }
 
         int minersActive = 0;
@@ -123,8 +126,62 @@ public strictfp class RobotPlayer {
         int fulfillmentCenterCount = 0;
         HashSet<int[]> fulfillmentCenterLoc = new HashSet<>();
 
+        boolean messageIsPending = false;
+        int[] pendingMessage = new int[0];
+        int pendingMessageCost = 0;
+
         while (true) {
             System.out.println(turnCount + " " + rc.getCooldownTurns() + " " + hasDepositDestination);
+            System.out.println(soupySquares);
+            if (messageIsPending) {
+                if (trySubmitTransaction(pendingMessage, pendingMessageCost)) {
+                    System.out.println("Pending message broadcasted");
+                    messageIsPending = false;
+                }
+            }
+
+            if (designSchoolCount < 2) {
+                for (Direction dir : directions) {
+                    if (tryBuild(RobotType.DESIGN_SCHOOL, dir)) {
+                        System.out.println("Built design school");
+                        int[] message = new int[7];
+                        message[0] = 3355678;
+                        message[1] = 3;
+                        MapLocation schoolLoc = rc.getLocation().add(dir);
+                        message[2] = 100*schoolLoc.x + schoolLoc.y;
+                        if (trySubmitTransaction(message, 20))
+                            System.out.println("Broadcast design school");
+                        else {
+                            messageIsPending = true;
+                            pendingMessage = message;
+                            pendingMessageCost = 20;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (fulfillmentCenterCount < 2) {
+                for (Direction dir : directions) {
+                    if (tryBuild(RobotType.FULFILLMENT_CENTER, dir)) {
+                        System.out.println("Built fulfillment center");
+                        int[] message = new int[7];
+                        message[0] = 3355678;
+                        message[1] = 4;
+                        MapLocation centerLoc = rc.getLocation().add(dir);
+                        message[2] = 100*centerLoc.x + centerLoc.y;
+                        if (trySubmitTransaction(message, 20)) {
+                            System.out.println("Broadcast fulfillment center");
+                        }
+                        else {
+                            messageIsPending = true;
+                            pendingMessage = message;
+                            pendingMessageCost = 20;
+                        }
+                        break;
+                    }
+                }
+            }
 
             if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
                 System.out.print("Reached max soup carry capacity ");
@@ -138,116 +195,127 @@ public strictfp class RobotPlayer {
                 }
             }
 
-            // TODO: MIGHT BE REDUNDANT
-            /*
-            for (Direction dir : directions) {
-                if (tryMine(dir)) {
-                    System.out.println("mined");
-                    System.out.println(rc.getSoupCarrying());
-                }
-            }*/
-
             // checks the blockchain every 6 turns
             if (turnCount % 6 == 0) {
                 System.out.println("Checking the blockchain");
-                // Gets previous the past 12 transactions
+                // Gets the past 10 transactions
                 int round = rc.getRoundNum();
-                ArrayList<Transaction> prevTransactions = new ArrayList<>();
-                for (int i = Math.max(1, round - 12); i < round; i ++) {
+                HashSet<Transaction> prevTransactions = new HashSet<>();
+                for (int i = Math.max(1, round - 10); i < round; i ++) {
                     prevTransactions.addAll(Arrays.asList(rc.getBlock(i)));
                 }
 
-                // Analyzes the past 12 transactions
+                // Analyzes the received transactions
                 for (Transaction trans : prevTransactions) {
                     int[] message = trans.getMessage();
                     if (message[0] == 3355678) {
                         if (message[1] == 1) {
                             int destinationx = message[2] / 100;
                             int destinationy = message[2] % 100;
-                            if (destinationx >= 0 && destinationy >= 0)
-                                deposit = new MapLocation(destinationx, destinationy);
+                            MapLocation dep = new MapLocation(destinationx, destinationy);
+                            soupySquares.add(dep);
+
                             if (!hasDepositDestination) {
                                 System.out.println("New deposit destination acquired from blockchain");
+                                deposit = closestLocation(soupySquares);
                                 hasDepositDestination = true;
                                 if (rc.getLocation().distanceSquaredTo(deposit) > 2)
                                     tryMove(rc.getLocation().directionTo(deposit));
                                 else
                                     tryMine(rc.getLocation().directionTo(deposit));
                             }
-                            else
-                                soupySquares.add(deposit);
                         }
                         else if (message[1] == 2) {
                             refineryCount ++;
+                            System.out.println("Notified of new refinery");
                             refineryLoc.add(new int[] {message[2] / 100, message[2] % 100});
                         }
                         else if (message[1] == 3) {
                             designSchoolCount ++;
+                            System.out.println("Notified of new design school");
                             designSchoolLoc.add(new int[] {message[2] / 100, message[2] % 100});
                         }
                         else if (message[1] == 4) {
                             fulfillmentCenterCount ++;
+                            System.out.println("Notified of new fulfillment center");
                             fulfillmentCenterLoc.add(new int[] {message[2] / 100, message[2] % 100});
                         }
                     }
                 }
             }
 
-            // miner moves in the direction of his destination
+            // miner moves in the direction of its destination
             if (hasDepositDestination) {
                 System.out.println("Have deposit destination");
                 if (rc.canSenseLocation(deposit)) {
                     int amt = rc.senseSoup(deposit);
                     if (amt == 0) {
+                        soupySquares.remove(deposit);
+                        emptySoupSquares.add(deposit);
                         hasDepositDestination = false;
                     }
                 }
                 Direction toDeposit = rc.getLocation().directionTo(deposit);
-                if (rc.canMineSoup(toDeposit)) {
-                    rc.mineSoup(toDeposit);
-                    System.out.println("Mined deposit!");
+                if (rc.getLocation().distanceSquaredTo(deposit) <= 2) {
+                    if (tryMine(toDeposit)) {
+                        System.out.println("Mined deposit!");
+                    }
                 }
-                else if (tryMove(toDeposit)) {
-                    System.out.println("Moved towards deposit!");
+                else {
+                    if (tryMove(toDeposit)) {
+                        System.out.println("Moved towards deposit!");
+                    }
                 }
             }
+            else if (!soupySquares.isEmpty()) {
+                MapLocation closestLoc = closestLocation(soupySquares);
+                hasDepositDestination = true;
+                if (tryMove(rc.getLocation().directionTo(closestLoc)))
+                    System.out.println("Moved towards closest deposit!");
+                else if (tryMine(rc.getLocation().directionTo(closestLoc)))
+                    System.out.println("Mined closest deposit!");
+            }
+            // random walking
+            else {
+                System.out.println("trying walking");
+                if (tryMove(randomDirection()))
+                    System.out.println("random walking");
+            }
+
+
             // sense soup nearby
-            else if (turnCount % 4 == 0){
+            if (turnCount % 4 == 0){
                 System.out.println("sensing soup nearby");
 
                 MapLocation selfLoc = rc.getLocation();
                 int x = selfLoc.x;
                 int y = selfLoc.y;
 
-                int closestDist = Integer.MAX_VALUE;
-                MapLocation closestLoc = null;
-
                 int maxdelta = (int) Math.sqrt(rc.getCurrentSensorRadiusSquared());
-                System.out.println(maxdelta);
                 for (int dx = -maxdelta; dx <= maxdelta; dx ++) {
                     for (int dy = -maxdelta; dy <= maxdelta; dy ++) {
                         MapLocation loc = new MapLocation(x + dx, y + dy);
-                        if (!emptySoupSquares.contains(loc) && rc.canSenseLocation(loc)) {
+                        if (!emptySoupSquares.contains(loc) && !soupySquares.contains(loc) &&
+                                rc.canSenseLocation(loc)) {
                             int amt = rc.senseSoup(loc);
                             if (amt > 0) {
                                 System.out.println("Soup deposit sensed at" + loc.toString());
                                 soupySquares.add(loc);
                                 hasDepositDestination = true;
 
-                                if (selfLoc.distanceSquaredTo(loc) < closestDist) {
-                                    closestDist = selfLoc.distanceSquaredTo(loc);
-                                    closestLoc = loc;
-                                }
-
                                 if (amt > 50) {
-                                    System.out.println("Soup deposit broadcasted");
                                     int[] message = new int[7];
                                     message[0] = 3355678;
                                     message[1] = 1;
                                     message[2] = 100 * loc.x + loc.y;
                                     message[3] = amt;
-                                    if (rc.canSubmitTransaction(message, 10))
-                                        rc.submitTransaction(message, 10);
+                                    if (trySubmitTransaction(message, 0))
+                                        System.out.println("Soup deposit broadcasted");
+                                    else {
+                                        messageIsPending = true;
+                                        pendingMessage = message;
+                                        pendingMessageCost = 10;
+                                    }
                                 }
                             }
                             else {
@@ -256,14 +324,9 @@ public strictfp class RobotPlayer {
                         }
                     }
                 }
-                deposit = closestLoc;
-                tryMove(selfLoc.directionTo(deposit));
-            }
-            // random walking
-            else {
-                System.out.println("trying walking");
-                if (tryMove(randomDirection()))
-                    System.out.println("random walking");
+                deposit = closestLocation(soupySquares);
+                if (!tryMove(selfLoc.directionTo(deposit)))
+                    tryMine(selfLoc.directionTo(deposit));
             }
 
             // tryBuild(randomSpawnedByMiner(), randomDirection());
@@ -297,8 +360,10 @@ public strictfp class RobotPlayer {
     static void runDesignSchool() throws GameActionException {
         int landscaperCount = 0;
         while (true) {
+            System.out.println("Entered loop");
             for (Direction dir : directions) {
                 if (tryBuild(RobotType.LANDSCAPER, dir)) {
+                    System.out.println("Built landscaper");
                     landscaperCount ++;
                 }
             }
@@ -310,8 +375,10 @@ public strictfp class RobotPlayer {
     static void runFulfillmentCenter() throws GameActionException {
         int droneCount = 0;
         while (true) {
+            System.out.println("Entered loop");
             for (Direction dir : directions) {
                 if (tryBuild(RobotType.DELIVERY_DRONE, dir)) {
+                    System.out.println("Built drone");
                     droneCount ++;
                 }
             }
@@ -320,8 +387,42 @@ public strictfp class RobotPlayer {
         }
     }
 
-    static void runLandscaper() throws GameActionException {
+    static MapLocation getHQLocation() throws GameActionException {
+        int checkRound = 1;
+        boolean foundHQLoc = false;
+        while (!foundHQLoc) {
+            Transaction[] transactions = rc.getBlock(checkRound);
+            for (Transaction trans : transactions) {
+                int[] message = trans.getMessage();
+                if (message[0] == 3355678 && message[1] == 5) {
+                    return new MapLocation(message[2] / 100, message[2] % 100);
+                }
+            }
+            checkRound ++;
+        }
+        return null;
+    }
 
+    static void runLandscaper() throws GameActionException {
+        MapLocation hqLoc = getHQLocation();
+
+        while (true) {
+            if (rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit) {
+                MapLocation selfLoc = rc.getLocation();
+                for (Direction dir : directions) {
+                    if (rc.senseElevation(selfLoc) - rc.senseElevation(selfLoc.add(dir)) < 2 &&
+                            rc.canDigDirt(dir)) {
+                        rc.digDirt(dir);
+                        System.out.println("Dug dirt");
+                    }
+                }
+            }
+            else {
+                System.out.println("Returning to HQ to build wall");
+            }
+            tryMove(directions[4]);
+            Clock.yield();
+        }
     }
 
     static void runDeliveryDrone() throws GameActionException {
@@ -340,6 +441,7 @@ public strictfp class RobotPlayer {
                     tryMove(randomDirection());
                 }
             }
+            turnCount ++;
             Clock.yield();
         }
     }
@@ -391,10 +493,11 @@ public strictfp class RobotPlayer {
      */
     static boolean tryMove(Direction dir) throws GameActionException {
         // System.out.println("I am trying to move " + dir + "; " + rc.isReady() + " " + rc.getCooldownTurns() + " " + rc.canMove(dir));
-        if (rc.isReady() && dir!= null && rc.canMove(dir)) {
+        if (dir == null) return false;
+        if (rc.isReady() && rc.canMove(dir)) {
             rc.move(dir);
             return true;
-        } else return false;
+        } return false;
     }
 
     /**
@@ -420,6 +523,7 @@ public strictfp class RobotPlayer {
      * @throws GameActionException
      */
     static boolean tryMine(Direction dir) throws GameActionException {
+        if (dir == null) return false;
         if (rc.isReady() && rc.canMineSoup(dir)) {
             rc.mineSoup(dir);
             return true;
@@ -441,13 +545,11 @@ public strictfp class RobotPlayer {
     }
 
 
-    static void tryMinerBlockchain() throws GameActionException {
-        int[] message = new int[7];
-        message[0] = 3355678;
-        message[1] = 1;
-        message[2] = 1;
-        if (rc.canSubmitTransaction(message, 10))
-            rc.submitTransaction(message, 10);
-        // System.out.println(rc.getRoundMessages(turnCount-1));
+    static boolean trySubmitTransaction(int[] message, int cost) throws GameActionException {
+        if (rc.canSubmitTransaction(message, cost)) {
+            rc.submitTransaction(message, cost);
+            return true;
+        }
+        return false;
     }
 }
