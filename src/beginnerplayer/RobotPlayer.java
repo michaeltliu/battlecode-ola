@@ -202,6 +202,7 @@ public strictfp class RobotPlayer {
                 }
                 else {
                     if (tryRefine(rc.getLocation().directionTo(hqLoc))) {
+                        goingToRefinery = false;
                         System.out.println("and refined!");
                     }
                 }
@@ -233,7 +234,7 @@ public strictfp class RobotPlayer {
                                 hasDepositDestination = true;
                             }
 
-                            if (rc.getLocation().distanceSquaredTo(deposit) > 2)
+                            if (!goingToRefinery && rc.getLocation().distanceSquaredTo(deposit) > 2)
                                 tryMove(rc.getLocation().directionTo(deposit));
                             else
                                 tryMine(rc.getLocation().directionTo(deposit));
@@ -275,7 +276,7 @@ public strictfp class RobotPlayer {
                         System.out.println("Moved to deposit!");
                     }
                 }
-                else{
+                else {
                     if (tryMine(toDeposit)) {
                         System.out.println("Mined deposit!");
                     }
@@ -349,7 +350,7 @@ public strictfp class RobotPlayer {
                     }
                 }
                 deposit = closestLocation(soupySquares);
-                if (deposit != null) {
+                if (!goingToRefinery && deposit != null) {
                     if (rc.getLocation().distanceSquaredTo(deposit) > 2)
                         tryMove(selfLoc.directionTo(deposit));
                     else
@@ -520,42 +521,27 @@ public strictfp class RobotPlayer {
             return true;
         }
         else {
-            Direction a, b;
-            if (rc.getID() % 2 == 0) {
-                a = dir.rotateLeft();
-                b = dir.rotateRight();
-            }
-            else {
-                b = dir.rotateLeft();
-                a = dir.rotateRight();
-            }
-            if (!tryMove(a)) {
-                a = a.rotateLeft();
-                if (!tryMove(b)) {
-                    b = b.rotateRight();
-                    if (!tryMove(a)) {
+            Direction a = dir.rotateLeft();
+            Direction b = dir.rotateRight();
+            for (int i = 0; i < 4; i ++){
+                if (rc.getID() % 2 == 0) {
+                    if (tryMove(a)) return true;
+                    else if (tryMove(b)) return true;
+                    else {
                         a = a.rotateLeft();
-                        if (!tryMove(b)) {
-                            b = b.rotateRight();
-                            if (!tryMove(a)) {
-                                a = a.rotateLeft();
-                                if (!tryMove(b)) {
-                                    if (!tryMove(a)) {
-                                        return false;
-                                    }
-                                    return true;
-                                }
-                                return true;
-                            }
-                            return true;
-                        }
-                        return true;
+                        b = b.rotateRight();
                     }
-                    return true;
                 }
-                return true;
+                else {
+                    if (tryMove(b)) return true;
+                    else if (tryMove(a)) return true;
+                    else {
+                        a = a.rotateLeft();
+                        b = b.rotateRight();
+                    }
+                }
             }
-            return true;
+            return false;
         }
     }
 
