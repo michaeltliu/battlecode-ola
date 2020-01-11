@@ -110,6 +110,7 @@ public strictfp class RobotPlayer {
         }
 
         boolean hasDepositDestination = false;
+        boolean goingToRefinery = false;
         MapLocation deposit = null;
         HashSet<MapLocation> emptySoupSquares = new HashSet<>();
         HashSet<MapLocation> soupySquares = new HashSet<>();
@@ -125,16 +126,74 @@ public strictfp class RobotPlayer {
 
         while (true) {
             System.out.println(turnCount + " " + rc.getCooldownTurns() + " " + hasDepositDestination);
+<<<<<<< Updated upstream
+=======
+            System.out.println(deposit);
+            if (messageIsPending) {
+                if (trySubmitTransaction(pendingMessage, pendingMessageCost)) {
+                    System.out.println("Pending message broadcasted");
+                    messageIsPending = false;
+                }
+            }
+
+            if (designSchoolCount < 2) {
+                for (Direction dir : directions) {
+                    if (tryBuild(RobotType.DESIGN_SCHOOL, dir)) {
+                        System.out.println("Built design school");
+                        int[] message = new int[7];
+                        message[0] = 3355678;
+                        message[1] = 3;
+                        MapLocation schoolLoc = rc.getLocation().add(dir);
+                        message[2] = 100*schoolLoc.x + schoolLoc.y;
+                        if (trySubmitTransaction(message, 20))
+                            System.out.println("Broadcast design school");
+                        else {
+                            messageIsPending = true;
+                            pendingMessage = message;
+                            pendingMessageCost = 20;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (fulfillmentCenterCount < 2) {
+                for (Direction dir : directions) {
+                    if (tryBuild(RobotType.FULFILLMENT_CENTER, dir)) {
+                        System.out.println("Built fulfillment center");
+                        int[] message = new int[7];
+                        message[0] = 3355678;
+                        message[1] = 4;
+                        MapLocation centerLoc = rc.getLocation().add(dir);
+                        message[2] = 100*centerLoc.x + centerLoc.y;
+                        if (trySubmitTransaction(message, 20)) {
+                            System.out.println("Broadcast fulfillment center");
+                        }
+                        else {
+                            messageIsPending = true;
+                            pendingMessage = message;
+                            pendingMessageCost = 20;
+                        }
+                        break;
+                    }
+                }
+            }
+>>>>>>> Stashed changes
 
             if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
                 System.out.print("Reached max soup carry capacity ");
+                hasDepositDestination = false;
+                goingToRefinery = true;
                 if (rc.getLocation().distanceSquaredTo(hqLoc) > 2) {
+                    rc.getCooldownTurns();
                     if (tryMove(rc.getLocation().directionTo(hqLoc)))
                         System.out.println("and headed to HQ");
+                    rc.getCooldownTurns();
                 }
                 else {
-                    if (tryRefine(rc.getLocation().directionTo(hqLoc)))
+                    if (tryRefine(rc.getLocation().directionTo(hqLoc))) {
                         System.out.println("and refined!");
+                    }
                 }
             }
 
@@ -168,14 +227,22 @@ public strictfp class RobotPlayer {
                                 deposit = new MapLocation(destinationx, destinationy);
                             if (!hasDepositDestination) {
                                 System.out.println("New deposit destination acquired from blockchain");
+<<<<<<< Updated upstream
+=======
+                                // TODO: should change this to deposit = dep?
+                                deposit = closestLocation(soupySquares);
+>>>>>>> Stashed changes
                                 hasDepositDestination = true;
-                                if (rc.getLocation().distanceSquaredTo(deposit) > 2)
-                                    tryMove(rc.getLocation().directionTo(deposit));
-                                else
-                                    tryMine(rc.getLocation().directionTo(deposit));
                             }
+<<<<<<< Updated upstream
                             else
                                 soupySquares.add(deposit);
+=======
+                            if (rc.getLocation().distanceSquaredTo(deposit) > 2)
+                                tryMove(rc.getLocation().directionTo(deposit));
+                            else
+                                tryMine(rc.getLocation().directionTo(deposit));
+>>>>>>> Stashed changes
                         }
                         else if (message[1] == 2) {
                             refineryCount ++;
@@ -211,6 +278,28 @@ public strictfp class RobotPlayer {
                     System.out.println("Moved towards deposit!");
                 }
             }
+<<<<<<< Updated upstream
+=======
+            else if (!soupySquares.isEmpty()) {
+                MapLocation closestLoc = closestLocation(soupySquares);
+                hasDepositDestination = true;
+                if (rc.getLocation().distanceSquaredTo(closestLoc) > 2) {
+                    if (tryMove(rc.getLocation().directionTo(closestLoc)))
+                        System.out.println("Moved towards closest deposit!");
+                }
+                else {
+                    if (tryMine(rc.getLocation().directionTo(closestLoc)))
+                        System.out.println("Mined closest deposit!");
+                }
+            }
+            // random walking
+            else {
+                System.out.println("trying walking");
+                if (tryMove(randomDirection()))
+                    System.out.println("success walking");
+            }
+
+>>>>>>> Stashed changes
             // sense soup nearby
             else if (turnCount % 4 == 0){
                 System.out.println("sensing soup nearby");
@@ -240,14 +329,28 @@ public strictfp class RobotPlayer {
                                 }
 
                                 if (amt > 50) {
+<<<<<<< Updated upstream
                                     System.out.println("Soup deposit broadcasted");
+=======
+                                    System.out.println("Reach");
+>>>>>>> Stashed changes
                                     int[] message = new int[7];
                                     message[0] = 3355678;
                                     message[1] = 1;
                                     message[2] = 100 * loc.x + loc.y;
                                     message[3] = amt;
+<<<<<<< Updated upstream
                                     if (rc.canSubmitTransaction(message, 10))
                                         rc.submitTransaction(message, 10);
+=======
+                                    if (trySubmitTransaction(message, 1))
+                                        System.out.println("Soup deposit broadcasted");
+                                    else {
+                                        messageIsPending = true;
+                                        pendingMessage = message;
+                                        pendingMessageCost = 1;
+                                    }
+>>>>>>> Stashed changes
                                 }
                             }
                             else {
@@ -256,6 +359,7 @@ public strictfp class RobotPlayer {
                         }
                     }
                 }
+<<<<<<< Updated upstream
                 deposit = closestLoc;
                 tryMove(selfLoc.directionTo(deposit));
             }
@@ -264,6 +368,15 @@ public strictfp class RobotPlayer {
                 System.out.println("trying walking");
                 if (tryMove(randomDirection()))
                     System.out.println("random walking");
+=======
+                deposit = closestLocation(soupySquares);
+                if (deposit != null) {
+                    if (rc.getLocation().distanceSquaredTo(deposit) > 2)
+                        tryMove(selfLoc.directionTo(deposit));
+                    else
+                        tryMine(selfLoc.directionTo(deposit));
+                }
+>>>>>>> Stashed changes
             }
 
             // tryBuild(randomSpawnedByMiner(), randomDirection());
@@ -283,6 +396,7 @@ public strictfp class RobotPlayer {
                 closestLoc = loc;
             }
         }
+        if (closestLoc != null) System.out.println("Closest location: " + closestLoc.toString());
         return closestLoc;
     }
 
@@ -297,9 +411,19 @@ public strictfp class RobotPlayer {
     static void runDesignSchool() throws GameActionException {
         int landscaperCount = 0;
         while (true) {
+<<<<<<< Updated upstream
             for (Direction dir : directions) {
                 if (tryBuild(RobotType.LANDSCAPER, dir)) {
                     landscaperCount ++;
+=======
+            System.out.println("Entered loop");
+            if (landscaperCount < 6) {
+                for (Direction dir : directions) {
+                    if (tryBuild(RobotType.LANDSCAPER, dir)) {
+                        System.out.println("Built landscaper");
+                        landscaperCount++;
+                    }
+>>>>>>> Stashed changes
                 }
             }
             turnCount ++;
@@ -321,7 +445,29 @@ public strictfp class RobotPlayer {
     }
 
     static void runLandscaper() throws GameActionException {
+<<<<<<< Updated upstream
 
+=======
+        //MapLocation hqLoc = getHQLocation();
+
+        while (true) {
+            /*if (rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit) {
+                MapLocation selfLoc = rc.getLocation();
+                for (Direction dir : directions) {
+                    if (rc.senseElevation(selfLoc) - rc.senseElevation(selfLoc.add(dir)) < 2 &&
+                            rc.canDigDirt(dir)) {
+                        rc.digDirt(dir);
+                        System.out.println("Dug dirt");
+                    }
+                }
+            }
+            else {
+                System.out.println("Returning to HQ to build wall");
+            }*/
+            tryMove(randomDirection());
+            Clock.yield();
+        }
+>>>>>>> Stashed changes
     }
 
     static void runDeliveryDrone() throws GameActionException {
@@ -391,10 +537,56 @@ public strictfp class RobotPlayer {
      */
     static boolean tryMove(Direction dir) throws GameActionException {
         // System.out.println("I am trying to move " + dir + "; " + rc.isReady() + " " + rc.getCooldownTurns() + " " + rc.canMove(dir));
+<<<<<<< Updated upstream
         if (rc.isReady() && dir!= null && rc.canMove(dir)) {
             rc.move(dir);
             return true;
         } else return false;
+=======
+        if (dir == null || !rc.isReady()) return false;
+        if (rc.canMove(dir)) {
+            rc.move(dir);
+            return true;
+        }
+        else {
+            Direction a, b;
+            if (rc.getID() % 2 == 0) {
+                a = dir.rotateLeft();
+                b = dir.rotateRight();
+            }
+            else {
+                b = dir.rotateLeft();
+                a = dir.rotateRight();
+            }
+            if (!tryMove(a)) {
+                a = a.rotateLeft();
+                if (!tryMove(b)) {
+                    b = b.rotateRight();
+                    if (!tryMove(a)) {
+                        a = a.rotateLeft();
+                        if (!tryMove(b)) {
+                            b = b.rotateRight();
+                            if (!tryMove(a)) {
+                                a = a.rotateLeft();
+                                if (!tryMove(b)) {
+                                    if (!tryMove(a)) {
+                                        return false;
+                                    }
+                                    return true;
+                                }
+                                return true;
+                            }
+                            return true;
+                        }
+                        return true;
+                    }
+                    return true;
+                }
+                return true;
+            }
+            return true;
+        }
+>>>>>>> Stashed changes
     }
 
     /**
