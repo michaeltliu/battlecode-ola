@@ -1,3 +1,10 @@
+// TODO's: Broad stuff up here, specific stuff down below
+// Improve communication - we can send 7 integers in every message. That's a lot of data so what else
+// should be transmitted?
+// Do we invest in vaporators and extra refineries (the HQ refinery seems to be holding up well)
+// Offensive strategy
+// Microlevel improvements anywhere?
+
 package beginnerplayer;
 import battlecode.common.*;
 
@@ -289,6 +296,8 @@ public strictfp class RobotPlayer {
             }
             // random walking
             // TODO: Improve team-search so bots spread out to look for new deposits in an organized way
+            // I'm thinking that we assign each bot a direction based on its ID mod 4
+            // or mod 8 for finer detail
             else {
                 System.out.println("trying walking");
                 if (tryMove(randomDirection()))
@@ -296,8 +305,8 @@ public strictfp class RobotPlayer {
             }
 
             // sense soup nearby
-            // TODO: Improve communication so that many different bots aren't all spamming the locations
-            // TODO: to the same exact deposit within a similar interval of time
+            // TODO: Improve communication so that many different bots aren't all spamming locations of
+            // TODO: the same exact deposit within a similar interval of time (saves soup and bytecode)
             if (turnCount % 4 == 0){
                 System.out.println("sensing soup nearby");
 
