@@ -139,6 +139,7 @@ public strictfp class RobotPlayer {
                 }
             }
 
+            // TODO: Don't build ALL design schools then ALL fulfillment centers -- do both at same time
             if (designSchoolCount < 2) {
                 for (Direction dir : directions) {
                     if (tryBuild(RobotType.DESIGN_SCHOOL, dir)) {
@@ -185,7 +186,7 @@ public strictfp class RobotPlayer {
             if (rc.getSoupCarrying() == RobotType.MINER.soupLimit) {
                 System.out.print("Reached max soup carry capacity ");
                 hasDepositDestination = false;
-                goingToRefinery = true;
+                goingToRefinery = true; // TODO: Implement this to fix small back and forth glitch
                 if (rc.getLocation().distanceSquaredTo(hqLoc) > 2) {
                     rc.getCooldownTurns();
                     if (tryMove(rc.getLocation().directionTo(hqLoc)))
@@ -221,7 +222,6 @@ public strictfp class RobotPlayer {
 
                             if (!hasDepositDestination) {
                                 System.out.println("New deposit destination acquired from blockchain");
-                                // TODO: should change this to deposit = dep?
                                 deposit = closestLocation(soupySquares);
                                 hasDepositDestination = true;
                             }
@@ -288,6 +288,7 @@ public strictfp class RobotPlayer {
                 }
             }
             // random walking
+            // TODO: Improve team-search so bots spread out to look for new deposits in an organized way
             else {
                 System.out.println("trying walking");
                 if (tryMove(randomDirection()))
@@ -295,6 +296,8 @@ public strictfp class RobotPlayer {
             }
 
             // sense soup nearby
+            // TODO: Improve communication so that many different bots aren't all spamming the locations
+            // TODO: to the same exact deposit within a similar interval of time
             if (turnCount % 4 == 0){
                 System.out.println("sensing soup nearby");
 
@@ -345,7 +348,6 @@ public strictfp class RobotPlayer {
                 }
             }
 
-            // tryBuild(randomSpawnedByMiner(), randomDirection());
             turnCount ++;
             Clock.yield();
         }
@@ -374,6 +376,7 @@ public strictfp class RobotPlayer {
 
     }
 
+    // TODO: Build design schools in more strategic locations (to reduce traffic)
     static void runDesignSchool() throws GameActionException {
         int landscaperCount = 0;
         while (true) {
@@ -391,6 +394,7 @@ public strictfp class RobotPlayer {
         }
     }
 
+    // TODO: Build fulfilllment centers in more strategic locations (to reduce traffic)
     static void runFulfillmentCenter() throws GameActionException {
         int droneCount = 0;
         while (true) {
@@ -404,6 +408,9 @@ public strictfp class RobotPlayer {
         }
     }
 
+    // TODO: Implement safe digging and build wall around HQ
+    // TODO: Determine how expansive the wall must be
+    // TODO: Search for walled-off, inaccessible areas and build ramps over the walls
     static void runLandscaper() throws GameActionException {
         //MapLocation hqLoc = getHQLocation();
 
@@ -426,6 +433,8 @@ public strictfp class RobotPlayer {
         }
     }
 
+    // TODO: Target cows and bomb enemy positions with cows
+    // TODO: Drop picked up enemies into flooded area
     static void runDeliveryDrone() throws GameActionException {
         while (true) {
             Team enemy = rc.getTeam().opponent();
@@ -587,7 +596,9 @@ public strictfp class RobotPlayer {
 
     static boolean trySubmitTransaction(int[] message, int cost) throws GameActionException {
         if (rc.canSubmitTransaction(message, cost)) {
+            System.out.println(rc.getCooldownTurns());
             rc.submitTransaction(message, cost);
+            System.out.println(rc.getCooldownTurns());
             return true;
         }
         return false;
