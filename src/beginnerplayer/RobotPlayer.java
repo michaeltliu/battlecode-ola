@@ -448,7 +448,28 @@ public strictfp class RobotPlayer {
     static void runDeliveryDrone() throws GameActionException {
         while (true) {
             Team enemy = rc.getTeam().opponent();
-            if (!rc.isCurrentlyHoldingUnit()) {
+            int droneCode = rc.getID() % 10;
+            int hqX = 0;
+            int hqY = 0;
+
+            /*if (!rc.isCurrentlyHoldingUnit()) {
+                // See if there are any enemy robots within striking range (distance 1 from lumberjack's radius)
+                RobotInfo[] robots = rc.senseNearbyRobots(GameConstants.DELIVERY_DRONE_PICKUP_RADIUS_SQUARED, enemy);
+
+                if (robots.length > 0) {
+                    // Pick up a first robot within range
+                    if (rc.canPickUpUnit(robots[0].getID())) {
+                        rc.pickUpUnit(robots[0].getID());
+                    }
+                }
+                else {
+                    // No close robots, so search for robots within sight radius
+                    tryMove(randomDirection());
+                }
+            }*/
+
+
+            if(droneCode >= 3){
                 // See if there are any enemy robots within striking range (distance 1 from lumberjack's radius)
                 RobotInfo[] robots = rc.senseNearbyRobots(GameConstants.DELIVERY_DRONE_PICKUP_RADIUS_SQUARED, enemy);
 
@@ -463,6 +484,27 @@ public strictfp class RobotPlayer {
                     tryMove(randomDirection());
                 }
             }
+            else{
+                Transaction[] transactions = rc.getBlock(1);
+
+                for(int i = 0; i < transactions.length; i++){
+                    int[] message = transactions[i].getMessage();
+
+                    if(message[0] == 3355678){
+                        if(message[1] == 5){
+                            hqX = message[2] / 100;
+                            hqY = message[2] % 100;
+                        }
+                    }
+                }
+
+                MapLocation hqLoc = new MapLocation(hqX,hqY);
+
+                if(rc.getLocation().distanceSquaredTo(hqLoc) > 2){
+                    tryMove(rc.getLocation().directionTo(hqLoc));
+                }
+            }
+
             turnCount ++;
             Clock.yield();
         }
