@@ -27,6 +27,11 @@ public strictfp class RobotPlayer {
             RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN};
 
     static int turnCount;
+
+    static boolean messageIsPending;
+    static int[] pendingMessage;
+    static int pendingMessageCost;
+
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
      * If this method returns, the robot dies!
@@ -39,6 +44,10 @@ public strictfp class RobotPlayer {
         RobotPlayer.rc = rc;
 
         turnCount = 0;
+
+        messageIsPending = false;
+        pendingMessage = new int[0];
+        pendingMessageCost = 0;
 
         System.out.println("I'm a " + rc.getType() + " and I just got created!");
         // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
@@ -121,10 +130,6 @@ public strictfp class RobotPlayer {
         MapLocation deposit = null;
         HashSet<MapLocation> emptySoupSquares = new HashSet<>();
         HashSet<MapLocation> soupySquares = new HashSet<>();
-
-        boolean messageIsPending = false;
-        int[] pendingMessage = new int[0];
-        int pendingMessageCost = 0;
 
         int refineryCount = 0;
         HashSet<int[]> refineryLoc = new HashSet<>();
@@ -214,7 +219,7 @@ public strictfp class RobotPlayer {
                 // Gets previous the past 12 transactions
                 int round = rc.getRoundNum();
                 HashSet<Transaction> prevTransactions = new HashSet<>();
-                for (int i = Math.max(1, round - 12); i < round; i ++) {
+                for (int i = Math.max(1, round - 10); i < round; i ++) {
                     prevTransactions.addAll(Arrays.asList(rc.getBlock(i)));
                 }
 
@@ -308,7 +313,7 @@ public strictfp class RobotPlayer {
             // sense soup nearby
             // TODO: Improve communication so that many different bots aren't all spamming locations of
             // TODO: the same exact deposit within a similar interval of time (saves soup and bytecode)
-            if (turnCount % 4 == 0){
+            if (turnCount % 5 == 0){
                 System.out.println("sensing soup nearby");
 
                 MapLocation selfLoc = rc.getLocation();
@@ -389,16 +394,52 @@ public strictfp class RobotPlayer {
     // TODO: Build design schools in more strategic locations (to reduce traffic)
     static void runDesignSchool() throws GameActionException {
         int landscaperCount = 0;
+
+        if (turnCount % 6 == 0) {
+            System.out.println("Checking the blockchain");
+            // Gets previous the past 10 transactions
+            int round = rc.getRoundNum();
+            HashSet<Transaction> prevTransactions = new HashSet<>();
+            for (int i = Math.max(1, round - 10); i < round; i ++) {
+                prevTransactions.addAll(Arrays.asList(rc.getBlock(i)));
+            }
+
+            // Analyzes the received transactions
+            for (Transaction trans : prevTransactions) {
+                int[] message = trans.getMessage();
+                if (message[0] == 3355678) {
+                    if (message[1] == 6) {
+                        System.out.println("Notified of new landscaper created");
+                        landscaperCount ++;
+                    }
+
+                }
+            }
+        }
+
         while (true) {
             System.out.println("Entered loop");
-            if (landscaperCount < 6) {
+            if (landscaperCount < 4) {
                 for (Direction dir : directions) {
                     if (tryBuild(RobotType.LANDSCAPER, dir)) {
                         System.out.println("Built landscaper");
                         landscaperCount++;
+
+                        int[] message = new int[7];
+                        message[0] = 3355678;
+                        message[1] = 6;
+
+                        if (trySubmitTransaction(message, 1))
+                            System.out.println("New landscaper created broadcasted");
+                        else {
+                            messageIsPending = true;
+                            pendingMessage = message;
+                            pendingMessageCost = 1;
+                        }
                     }
                 }
             }
+
             turnCount ++;
             Clock.yield();
         }
@@ -422,11 +463,24 @@ public strictfp class RobotPlayer {
     // TODO: Determine how expansive the wall must be
     // TODO: Search for walled-off, inaccessible areas and build ramps over the walls
     static void runLandscaper() throws GameActionException {
-        //MapLocation hqLoc = getHQLocation();
+        MapLocation hqLoc = getHQLocation();
 
         while (true) {
-            /*if (rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit) {
-                MapLocation selfLoc = rc.getLocation();
+            MapLocation selfLoc = rc.getLocation();
+            MapLocation target = new MapLocation(15,38);
+
+            if (rc.getDirtCarrying() == RobotType.LANDSCAPER.dirtLimit) {
+                if (selfLoc.isAdjacentTo(hqLoc)) {
+                    tryDepositDirt(Direction.CENTER);
+                }
+                else {
+                    tryMove(selfLoc.directionTo(hqLoc));
+                }
+            }
+            else if (selfLoc.distanceSquaredTo(target) > 25) {
+                tryMove(selfLoc.directionTo(target));
+            }
+            else {
                 for (Direction dir : directions) {
                     if (rc.senseElevation(selfLoc) - rc.senseElevation(selfLoc.add(dir)) < 2 &&
                             rc.canDigDirt(dir)) {
@@ -435,11 +489,20 @@ public strictfp class RobotPlayer {
                     }
                 }
             }
-            else {
-                System.out.println("Returning to HQ to build wall");
-            }*/
-            tryMove(randomDirection());
             Clock.yield();
+        }
+    }
+
+    static MapLocation getHQLocation() throws GameActionException {
+        int i = 1;
+        while (true) {
+            Transaction[] transactions = rc.getBlock(i);
+            for (Transaction t : transactions) {
+                int[] message = t.getMessage();
+                if (message[0] == 3355678 && message[1] == 5) {
+                    return new MapLocation(message[2] / 100, message[2] % 100);
+                }
+            }
         }
     }
 
@@ -572,6 +635,13 @@ public strictfp class RobotPlayer {
             rc.mineSoup(dir);
             return true;
         } else return false;
+    }
+
+    static boolean tryDepositDirt(Direction dir) throws GameActionException {
+        if (rc.isReady() && dir != null && rc.canMineSoup(dir)) {
+            rc.mineSoup(dir);
+            return true;
+        } return false;
     }
 
     /**
